@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceTraceabilityQueryMapper">
+
+    <resultMap id="TraceTraceabilityInfoResult" type="com.wine.system.domain.vo.TraceTraceabilityInfoVo">
+        <result property="bottlingId" column="bottling_id"/>
+        <result property="batchId" column="batch_id"/>
+        <result property="regionId" column="region_id"/>
+        <result property="regionAncestors" column="ancestors"/>
+        <result property="regionName" column="region_name"/>
+        <result property="enterpriseName" column="enterprise_name"/>
+        <result property="productName" column="product_name"/>
+        <result property="batchNo" column="batch_no"/>
+        <result property="plotName" column="plot_name"/>
+        <result property="gpsCoordinates" column="gps_coordinates"/>
+        <result property="workshopName" column="workshop_name"/>
+        <result property="entryWorkshopTime" column="entry_workshop_time"/>
+        <result property="sourceContainerCode" column="source_container_code"/>
+        <result property="sourceContainerType" column="source_container_type"/>
+        <result property="sourceLocationDetail" column="source_location_detail"/>
+        <result property="bottlingDate" column="bottling_date"/>
+        <result property="bottleSpec" column="bottle_spec"/>
+        <result property="capCode" column="cap_code"/>
+        <result property="qrCodeUrl" column="qr_code_url"/>
+        <result property="inspectionDate" column="inspection_date"/>
+        <result property="inspector" column="inspector"/>
+        <result property="isQualified" column="is_qualified"/>
+    </resultMap>
+
+    <resultMap id="TraceWarehouseEventResult" type="com.wine.system.domain.vo.TraceWarehouseEventVo">
+        <result property="billId" column="bill_id"/>
+        <result property="billType" column="bill_type"/>
+        <result property="billNo" column="bill_no"/>
+        <result property="operateTime" column="operate_time"/>
+        <result property="quantity" column="quantity"/>
+        <result property="startTraceCode" column="start_trace_code"/>
+        <result property="endTraceCode" column="end_trace_code"/>
+        <result property="carrier" column="carrier"/>
+        <result property="trackingNo" column="tracking_no"/>
+        <result property="consignee" column="consignee"/>
+        <result property="destination" column="destination"/>
+        <result property="shipDate" column="ship_date"/>
+    </resultMap>
+
+    <select id="selectTraceabilityBase" resultMap="TraceTraceabilityInfoResult">
+        select bi.bottling_id, bi.batch_id, e.region_id, r.ancestors, r.region_name,
+               e.enterprise_name, p.product_name, b.batch_no, vp.plot_name, vp.gps_coordinates,
+               w.workshop_name, b.entry_workshop_time,
+               c.container_code as source_container_code, c.container_type as source_container_type, c.location_detail as source_location_detail,
+               bi.bottling_date, bi.bottle_spec, bi.cap_code, bi.qr_code_url,
+               qr.inspection_date, qr.inspector, qr.is_qualified
+        from trace_bottling_info bi
+        left join trace_batch b on b.batch_id = bi.batch_id
+        left join trace_product p on p.product_id = b.product_id
+        left join trace_vineyard_plot vp on vp.plot_id = b.plot_id
+        left join trace_enterprise e on e.enterprise_id = vp.enterprise_id
+        left join trace_region r on r.region_id = e.region_id
+        left join trace_workshop w on w.workshop_id = b.workshop_id
+        left join trace_container c on c.container_id = bi.source_container_id
+        left join trace_quality_report qr on qr.report_id = (
+            select q.report_id from trace_quality_report q
+            where q.batch_id = b.batch_id and q.del_flag = '0'
+            order by q.inspection_date desc, q.report_id desc
+            limit 1
+        )
+        where bi.del_flag = '0'
+          and bi.trace_code_prefix = #{traceCodePrefix}
+          and #{traceCodeSerial} between bi.trace_code_start and bi.trace_code_end
+        limit 1
+    </select>
+
+    <select id="selectWarehouseEventsByBottlingId" parameterType="Long" resultMap="TraceWarehouseEventResult">
+        select wb.bill_id, wb.bill_type, wb.bill_no, wb.operate_time, d.quantity,
+               d.start_trace_code, d.end_trace_code,
+               l.carrier, l.tracking_no, l.consignee, l.destination, l.ship_date
+        from trace_warehouse_bill_detail d
+        left join trace_warehouse_bill wb on wb.bill_id = d.bill_id and wb.del_flag = '0'
+        left join trace_logistics l on l.out_bill_id = wb.bill_id and l.del_flag = '0'
+        where d.bottling_id = #{bottlingId} and d.del_flag = '0'
+        order by wb.operate_time asc, d.detail_id asc
+    </select>
+
+</mapper>

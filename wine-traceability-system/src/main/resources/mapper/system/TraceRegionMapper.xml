@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceRegionMapper">
+
+    <resultMap id="TraceRegionResult" type="TraceRegion">
+        <id property="regionId" column="region_id"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="ancestors" column="ancestors"/>
+        <result property="regionName" column="region_name"/>
+        <result property="regionLevel" column="region_level"/>
+        <result property="orderNum" column="order_num"/>
+        <result property="status" column="status"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="description" column="description"/>
+        <result property="remark" column="remark"/>
+        <result property="parentName" column="parent_name"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectRegionVo">
+        select r.region_id, r.parent_id, r.ancestors, r.region_name, r.region_level, r.order_num,
+               r.status, r.del_flag, r.description, r.remark, r.create_by, r.create_time,
+               r.update_by, r.update_time
+        from trace_region r
+    </sql>
+
+    <select id="selectRegionList" parameterType="TraceRegion" resultMap="TraceRegionResult">
+        <include refid="selectRegionVo"/>
+        where r.del_flag = '0'
+        <if test="regionId != null">
+            and r.region_id = #{regionId}
+        </if>
+        <if test="parentId != null">
+            and r.parent_id = #{parentId}
+        </if>
+        <if test="regionName != null and regionName != ''">
+            and r.region_name like concat('%', #{regionName}, '%')
+        </if>
+        <if test="status != null and status != ''">
+            and r.status = #{status}
+        </if>
+        order by r.parent_id, r.order_num, r.region_id
+    </select>
+
+    <select id="selectRegionById" parameterType="Long" resultMap="TraceRegionResult">
+        select r.region_id, r.parent_id, r.ancestors, r.region_name, r.region_level, r.order_num,
+               r.status, r.del_flag, r.description, r.remark, r.create_by, r.create_time,
+               r.update_by, r.update_time,
+               (select region_name from trace_region where region_id = r.parent_id) as parent_name
+        from trace_region r
+        where r.region_id = #{regionId} and r.del_flag = '0'
+    </select>
+
+    <select id="selectRegionByIds" parameterType="Long" resultMap="TraceRegionResult">
+        <include refid="selectRegionVo"/>
+        where r.region_id in
+        <foreach collection="array" item="regionId" open="(" separator="," close=")">
+            #{regionId}
+        </foreach>
+    </select>
+
+    <select id="selectChildrenRegionById" parameterType="Long" resultMap="TraceRegionResult">
+        <include refid="selectRegionVo"/>
+        where r.del_flag = '0' and find_in_set(#{regionId}, r.ancestors)
+        order by r.region_level, r.order_num, r.region_id
+    </select>
+
+    <select id="selectNormalChildrenRegionById" parameterType="Long" resultType="int">
+        select count(1)
+        from trace_region
+        where del_flag = '0' and status = '0' and find_in_set(#{regionId}, ancestors)
+    </select>
+
+    <select id="hasChildByRegionId" parameterType="Long" resultType="int">
+        select count(1)
+        from trace_region
+        where del_flag = '0' and parent_id = #{regionId}
+        limit 1
+    </select>
+
+    <select id="checkRegionExistEnterprise" parameterType="Long" resultType="int">
+        select count(1)
+        from trace_enterprise
+        where del_flag = '0' and region_id = #{regionId}
+        limit 1
+    </select>
+
+    <select id="checkRegionNameUnique" resultMap="TraceRegionResult">
+        <include refid="selectRegionVo"/>
+        where r.del_flag = '0' and r.parent_id = #{parentId} and r.region_name = #{regionName}
+        limit 1
+    </select>
+
+    <insert id="insertRegion" parameterType="TraceRegion" useGeneratedKeys="true" keyProperty="regionId">
+        insert into trace_region (
+            parent_id, ancestors, region_name, region_level, order_num, status, description, remark, create_by, create_time
+        ) values (
+            #{parentId}, #{ancestors}, #{regionName}, #{regionLevel}, #{orderNum}, #{status}, #{description}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateRegion" parameterType="TraceRegion">
+        update trace_region
+        <set>
+            parent_id = #{parentId},
+            ancestors = #{ancestors},
+            region_name = #{regionName},
+            region_level = #{regionLevel},
+            order_num = #{orderNum},
+            status = #{status},
+            description = #{description},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where region_id = #{regionId}
+    </update>
+
+    <update id="updateRegionChildren" parameterType="java.util.List">
+        update trace_region
+        set ancestors =
+        <foreach collection="regions" item="item" separator=" " open="case region_id" close="end">
+            when #{item.regionId} then #{item.ancestors}
+        </foreach>,
+        region_level =
+        <foreach collection="regions" item="item" separator=" " open="case region_id" close="end">
+            when #{item.regionId} then #{item.regionLevel}
+        </foreach>
+        where region_id in
+        <foreach collection="regions" item="item" open="(" separator="," close=")">
+            #{item.regionId}
+        </foreach>
+    </update>
+
+    <update id="updateRegionStatusNormal" parameterType="Long">
+        update trace_region
+        set status = '0'
+        where region_id in
+        <foreach collection="array" item="regionId" open="(" separator="," close=")">
+            #{regionId}
+        </foreach>
+    </update>
+
+    <delete id="deleteRegionById" parameterType="Long">
+        update trace_region
+        set del_flag = '2'
+        where region_id = #{regionId}
+    </delete>
+
+</mapper>

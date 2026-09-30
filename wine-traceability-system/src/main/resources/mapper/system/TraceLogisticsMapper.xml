@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceLogisticsMapper">
+
+    <resultMap id="TraceLogisticsResult" type="TraceLogistics">
+        <id property="logisticsId" column="logistics_id"/>
+        <result property="outBillId" column="out_bill_id"/>
+        <result property="outBillNo" column="bill_no"/>
+        <result property="carrier" column="carrier"/>
+        <result property="trackingNo" column="tracking_no"/>
+        <result property="consignee" column="consignee"/>
+        <result property="destination" column="destination"/>
+        <result property="shipDate" column="ship_date"/>
+        <result property="remark" column="remark"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectLogisticsVo">
+        select l.logistics_id, l.out_bill_id, b.bill_no, l.carrier, l.tracking_no,
+               l.consignee, l.destination, l.ship_date, l.remark, l.del_flag,
+               l.create_by, l.create_time, l.update_by, l.update_time
+        from trace_logistics l
+        left join trace_warehouse_bill b on b.bill_id = l.out_bill_id
+    </sql>
+
+    <select id="selectLogisticsById" parameterType="Long" resultMap="TraceLogisticsResult">
+        <include refid="selectLogisticsVo"/>
+        where l.logistics_id = #{logisticsId} and l.del_flag = '0'
+    </select>
+
+    <select id="selectLogisticsList" parameterType="TraceLogistics" resultMap="TraceLogisticsResult">
+        <include refid="selectLogisticsVo"/>
+        where l.del_flag = '0'
+        <if test="outBillId != null">
+            and l.out_bill_id = #{outBillId}
+        </if>
+        <if test="outBillNo != null and outBillNo != ''">
+            and b.bill_no like concat('%', #{outBillNo}, '%')
+        </if>
+        <if test="carrier != null and carrier != ''">
+            and l.carrier like concat('%', #{carrier}, '%')
+        </if>
+        <if test="trackingNo != null and trackingNo != ''">
+            and l.tracking_no like concat('%', #{trackingNo}, '%')
+        </if>
+        order by l.ship_date desc, l.logistics_id desc
+    </select>
+
+    <select id="checkOutBillUnique" parameterType="Long" resultMap="TraceLogisticsResult">
+        <include refid="selectLogisticsVo"/>
+        where l.out_bill_id = #{outBillId} and l.del_flag = '0'
+        limit 1
+    </select>
+
+    <insert id="insertLogistics" parameterType="TraceLogistics" useGeneratedKeys="true" keyProperty="logisticsId">
+        insert into trace_logistics (
+            out_bill_id, carrier, tracking_no, consignee, destination, ship_date, remark, create_by, create_time
+        ) values (
+            #{outBillId}, #{carrier}, #{trackingNo}, #{consignee}, #{destination}, #{shipDate}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateLogistics" parameterType="TraceLogistics">
+        update trace_logistics
+        <set>
+            out_bill_id = #{outBillId},
+            carrier = #{carrier},
+            tracking_no = #{trackingNo},
+            consignee = #{consignee},
+            destination = #{destination},
+            ship_date = #{shipDate},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where logistics_id = #{logisticsId}
+    </update>
+
+    <update id="deleteLogisticsByIds" parameterType="Long">
+        update trace_logistics set del_flag = '2'
+        where logistics_id in
+        <foreach collection="array" item="logisticsId" open="(" separator="," close=")">
+            #{logisticsId}
+        </foreach>
+    </update>
+
+</mapper>

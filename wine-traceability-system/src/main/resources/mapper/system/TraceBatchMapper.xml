@@ -1,0 +1,136 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceBatchMapper">
+
+    <resultMap id="TraceBatchResult" type="TraceBatch">
+        <id property="batchId" column="batch_id"/>
+        <result property="batchNo" column="batch_no"/>
+        <result property="productId" column="product_id"/>
+        <result property="productName" column="product_name"/>
+        <result property="plotId" column="plot_id"/>
+        <result property="plotName" column="plot_name"/>
+        <result property="workshopId" column="workshop_id"/>
+        <result property="workshopName" column="workshop_name"/>
+        <result property="enterpriseId" column="enterprise_id"/>
+        <result property="enterpriseName" column="enterprise_name"/>
+        <result property="entryWorkshopTime" column="entry_workshop_time"/>
+        <result property="harvestDate" column="harvest_date"/>
+        <result property="harvestLocation" column="harvest_location"/>
+        <result property="totalYieldL" column="total_yield_l"/>
+        <result property="status" column="status"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="remark" column="remark"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectBatchVo">
+        select b.batch_id, b.batch_no, b.product_id, p.product_name, b.plot_id, vp.plot_name,
+               b.workshop_id, w.workshop_name, p.enterprise_id, e.enterprise_name,
+               b.entry_workshop_time, b.harvest_date, b.harvest_location, b.total_yield_l,
+               b.status, b.del_flag, b.remark, b.create_by, b.create_time, b.update_by, b.update_time
+        from trace_batch b
+        left join trace_product p on p.product_id = b.product_id
+        left join trace_enterprise e on e.enterprise_id = p.enterprise_id
+        left join trace_vineyard_plot vp on vp.plot_id = b.plot_id
+        left join trace_workshop w on w.workshop_id = b.workshop_id
+    </sql>
+
+    <select id="selectBatchById" parameterType="Long" resultMap="TraceBatchResult">
+        <include refid="selectBatchVo"/>
+        where b.batch_id = #{batchId} and b.del_flag = '0'
+    </select>
+
+    <select id="selectBatchList" parameterType="TraceBatch" resultMap="TraceBatchResult">
+        <include refid="selectBatchVo"/>
+        where b.del_flag = '0'
+        <if test="enterpriseId != null">
+            and p.enterprise_id = #{enterpriseId}
+        </if>
+        <if test="productId != null">
+            and b.product_id = #{productId}
+        </if>
+        <if test="plotId != null">
+            and b.plot_id = #{plotId}
+        </if>
+        <if test="workshopId != null">
+            and b.workshop_id = #{workshopId}
+        </if>
+        <if test="batchNo != null and batchNo != ''">
+            and b.batch_no like concat('%', #{batchNo}, '%')
+        </if>
+        <if test="status != null and status != ''">
+            and b.status = #{status}
+        </if>
+        order by b.batch_id desc
+    </select>
+
+    <select id="selectBatchOptions" resultMap="TraceBatchResult">
+        <include refid="selectBatchVo"/>
+        where b.del_flag = '0'
+        <if test="enterpriseId != null">
+            and p.enterprise_id = #{enterpriseId}
+        </if>
+        order by b.batch_no desc
+    </select>
+
+    <select id="checkBatchNoUnique" parameterType="String" resultMap="TraceBatchResult">
+        <include refid="selectBatchVo"/>
+        where b.del_flag = '0' and b.batch_no = #{batchNo}
+        limit 1
+    </select>
+
+    <select id="hasBatchByProductId" parameterType="Long" resultType="int">
+        select count(1) from trace_batch where product_id = #{productId} and del_flag = '0' limit 1
+    </select>
+
+    <select id="hasBatchByPlotId" parameterType="Long" resultType="int">
+        select count(1) from trace_batch where plot_id = #{plotId} and del_flag = '0' limit 1
+    </select>
+
+    <select id="hasBatchByWorkshopId" parameterType="Long" resultType="int">
+        select count(1) from trace_batch where workshop_id = #{workshopId} and del_flag = '0' limit 1
+    </select>
+
+    <insert id="insertBatch" parameterType="TraceBatch" useGeneratedKeys="true" keyProperty="batchId">
+        insert into trace_batch (
+            batch_no, product_id, plot_id, workshop_id, entry_workshop_time, harvest_date,
+            harvest_location, total_yield_l, status, remark, create_by, create_time
+        ) values (
+            #{batchNo}, #{productId}, #{plotId}, #{workshopId}, #{entryWorkshopTime}, #{harvestDate},
+            #{harvestLocation}, #{totalYieldL}, #{status}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateBatch" parameterType="TraceBatch">
+        update trace_batch
+        <set>
+            batch_no = #{batchNo},
+            product_id = #{productId},
+            plot_id = #{plotId},
+            workshop_id = #{workshopId},
+            entry_workshop_time = #{entryWorkshopTime},
+            harvest_date = #{harvestDate},
+            harvest_location = #{harvestLocation},
+            total_yield_l = #{totalYieldL},
+            status = #{status},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where batch_id = #{batchId}
+    </update>
+
+    <update id="deleteBatchByIds" parameterType="Long">
+        update trace_batch set del_flag = '2'
+        where batch_id in
+        <foreach collection="array" item="batchId" open="(" separator="," close=")">
+            #{batchId}
+        </foreach>
+    </update>
+
+</mapper>

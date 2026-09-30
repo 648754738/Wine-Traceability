@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceEnterpriseMapper">
+
+    <resultMap id="TraceEnterpriseResult" type="TraceEnterprise">
+        <id property="enterpriseId" column="enterprise_id"/>
+        <result property="regionId" column="region_id"/>
+        <result property="regionName" column="region_name"/>
+        <result property="enterpriseName" column="enterprise_name"/>
+        <result property="licenseNo" column="license_no"/>
+        <result property="contact" column="contact"/>
+        <result property="phone" column="phone"/>
+        <result property="address" column="address"/>
+        <result property="status" column="status"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="remark" column="remark"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectEnterpriseVo">
+        select e.enterprise_id, e.region_id, r.region_name, e.enterprise_name, e.license_no,
+               e.contact, e.phone, e.address, e.status, e.del_flag, e.remark,
+               e.create_by, e.create_time, e.update_by, e.update_time
+        from trace_enterprise e
+        left join trace_region r on r.region_id = e.region_id
+    </sql>
+
+    <select id="selectEnterpriseById" parameterType="Long" resultMap="TraceEnterpriseResult">
+        <include refid="selectEnterpriseVo"/>
+        where e.enterprise_id = #{enterpriseId} and e.del_flag = '0'
+    </select>
+
+    <select id="selectEnterpriseList" parameterType="TraceEnterprise" resultMap="TraceEnterpriseResult">
+        <include refid="selectEnterpriseVo"/>
+        where e.del_flag = '0'
+        <if test="enterpriseName != null and enterpriseName != ''">
+            and e.enterprise_name like concat('%', #{enterpriseName}, '%')
+        </if>
+        <if test="regionId != null">
+            and e.region_id = #{regionId}
+        </if>
+        <if test="contact != null and contact != ''">
+            and e.contact like concat('%', #{contact}, '%')
+        </if>
+        <if test="status != null and status != ''">
+            and e.status = #{status}
+        </if>
+        order by e.enterprise_id desc
+    </select>
+
+    <select id="selectEnterpriseOptions" resultMap="TraceEnterpriseResult">
+        <include refid="selectEnterpriseVo"/>
+        where e.del_flag = '0' and e.status = '0'
+        order by e.enterprise_name asc
+    </select>
+
+    <select id="checkEnterpriseNameUnique" parameterType="String" resultMap="TraceEnterpriseResult">
+        <include refid="selectEnterpriseVo"/>
+        where e.del_flag = '0' and e.enterprise_name = #{enterpriseName}
+        limit 1
+    </select>
+
+    <select id="checkLicenseNoUnique" parameterType="String" resultMap="TraceEnterpriseResult">
+        <include refid="selectEnterpriseVo"/>
+        where e.del_flag = '0' and e.license_no = #{licenseNo}
+        limit 1
+    </select>
+
+    <select id="hasPlotByEnterpriseId" parameterType="Long" resultType="int">
+        select count(1)
+        from trace_vineyard_plot
+        where del_flag = '0' and enterprise_id = #{enterpriseId}
+        limit 1
+    </select>
+
+    <select id="hasProductByEnterpriseId" parameterType="Long" resultType="int">
+        select count(1)
+        from trace_product
+        where del_flag = '0' and enterprise_id = #{enterpriseId}
+        limit 1
+    </select>
+
+    <select id="hasWorkshopByEnterpriseId" parameterType="Long" resultType="int">
+        select count(1)
+        from trace_workshop
+        where del_flag = '0' and enterprise_id = #{enterpriseId}
+        limit 1
+    </select>
+
+    <select id="hasContainerByEnterpriseId" parameterType="Long" resultType="int">
+        select count(1)
+        from trace_container
+        where del_flag = '0' and enterprise_id = #{enterpriseId}
+        limit 1
+    </select>
+
+    <insert id="insertEnterprise" parameterType="TraceEnterprise" useGeneratedKeys="true" keyProperty="enterpriseId">
+        insert into trace_enterprise (
+            region_id, enterprise_name, license_no, contact, phone, address, status, remark, create_by, create_time
+        ) values (
+            #{regionId}, #{enterpriseName}, #{licenseNo}, #{contact}, #{phone}, #{address}, #{status}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateEnterprise" parameterType="TraceEnterprise">
+        update trace_enterprise
+        <set>
+            region_id = #{regionId},
+            enterprise_name = #{enterpriseName},
+            license_no = #{licenseNo},
+            contact = #{contact},
+            phone = #{phone},
+            address = #{address},
+            status = #{status},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where enterprise_id = #{enterpriseId}
+    </update>
+
+    <update id="deleteEnterpriseByIds" parameterType="Long">
+        update trace_enterprise
+        set del_flag = '2'
+        where enterprise_id in
+        <foreach collection="array" item="enterpriseId" open="(" separator="," close=")">
+            #{enterpriseId}
+        </foreach>
+    </update>
+
+</mapper>

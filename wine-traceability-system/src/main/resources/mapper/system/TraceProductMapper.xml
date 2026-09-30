@@ -1,0 +1,156 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceProductMapper">
+
+    <resultMap id="TraceProductResult" type="TraceProduct">
+        <id property="productId" column="product_id"/>
+        <result property="enterpriseId" column="enterprise_id"/>
+        <result property="enterpriseName" column="enterprise_name"/>
+        <result property="productName" column="product_name"/>
+        <result property="category" column="category"/>
+        <result property="alcoholContent" column="alcohol_content"/>
+        <result property="netContent" column="net_content"/>
+        <result property="shelfLife" column="shelf_life"/>
+        <result property="status" column="status"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="varietyNames" column="variety_names"/>
+        <result property="remark" column="remark"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <resultMap id="TraceProductVarietyResult" type="TraceProductVariety">
+        <id property="id" column="id"/>
+        <result property="productId" column="product_id"/>
+        <result property="varietyId" column="variety_id"/>
+        <result property="varietyName" column="variety_name"/>
+        <result property="percentage" column="percentage"/>
+    </resultMap>
+
+    <sql id="selectProductVo">
+        select p.product_id, p.enterprise_id, e.enterprise_name, p.product_name, p.category, p.alcohol_content,
+               p.net_content, p.shelf_life, p.status, p.del_flag, p.remark, p.create_by, p.create_time,
+               p.update_by, p.update_time,
+               group_concat(v.variety_name order by v.variety_name separator ' / ') as variety_names
+        from trace_product p
+        left join trace_enterprise e on e.enterprise_id = p.enterprise_id
+        left join trace_product_variety pv on pv.product_id = p.product_id
+        left join trace_grape_variety v on v.variety_id = pv.variety_id
+    </sql>
+
+    <select id="selectProductById" parameterType="Long" resultMap="TraceProductResult">
+        <include refid="selectProductVo"/>
+        where p.del_flag = '0' and p.product_id = #{productId}
+        group by p.product_id
+    </select>
+
+    <select id="selectProductList" parameterType="TraceProduct" resultMap="TraceProductResult">
+        <include refid="selectProductVo"/>
+        where p.del_flag = '0'
+        <if test="enterpriseId != null">
+            and p.enterprise_id = #{enterpriseId}
+        </if>
+        <if test="productName != null and productName != ''">
+            and p.product_name like concat('%', #{productName}, '%')
+        </if>
+        <if test="category != null and category != ''">
+            and p.category like concat('%', #{category}, '%')
+        </if>
+        <if test="status != null and status != ''">
+            and p.status = #{status}
+        </if>
+        group by p.product_id
+        order by p.product_id desc
+    </select>
+
+    <select id="selectProductOptions" resultMap="TraceProductResult">
+        <include refid="selectProductVo"/>
+        where p.del_flag = '0' and p.status = '0'
+        <if test="enterpriseId != null">
+            and p.enterprise_id = #{enterpriseId}
+        </if>
+        group by p.product_id
+        order by p.product_name asc
+    </select>
+
+    <select id="checkProductNameUnique" resultMap="TraceProductResult">
+        <include refid="selectProductVo"/>
+        where p.del_flag = '0' and p.enterprise_id = #{enterpriseId} and p.product_name = #{productName}
+        group by p.product_id
+        limit 1
+    </select>
+
+    <insert id="insertProduct" parameterType="TraceProduct" useGeneratedKeys="true" keyProperty="productId">
+        insert into trace_product (
+            enterprise_id, product_name, category, alcohol_content, net_content, shelf_life, status, remark, create_by, create_time
+        ) values (
+            #{enterpriseId}, #{productName}, #{category}, #{alcoholContent}, #{netContent}, #{shelfLife}, #{status}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateProduct" parameterType="TraceProduct">
+        update trace_product
+        <set>
+            enterprise_id = #{enterpriseId},
+            product_name = #{productName},
+            category = #{category},
+            alcohol_content = #{alcoholContent},
+            net_content = #{netContent},
+            shelf_life = #{shelfLife},
+            status = #{status},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where product_id = #{productId}
+    </update>
+
+    <update id="deleteProductByIds" parameterType="Long">
+        update trace_product
+        set del_flag = '2'
+        where product_id in
+        <foreach collection="array" item="productId" open="(" separator="," close=")">
+            #{productId}
+        </foreach>
+    </update>
+
+    <select id="selectProductVarietyList" parameterType="Long" resultMap="TraceProductVarietyResult">
+        select pv.id, pv.product_id, pv.variety_id, v.variety_name, pv.percentage
+        from trace_product_variety pv
+        left join trace_grape_variety v on v.variety_id = pv.variety_id
+        where pv.product_id = #{productId}
+        order by pv.id asc
+    </select>
+
+    <insert id="insertProductVarieties">
+        insert into trace_product_variety (product_id, variety_id, percentage) values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.productId}, #{item.varietyId}, #{item.percentage})
+        </foreach>
+    </insert>
+
+    <delete id="deleteProductVarietiesByProductIds" parameterType="Long">
+        delete from trace_product_variety
+        where product_id in
+        <foreach collection="array" item="productId" open="(" separator="," close=")">
+            #{productId}
+        </foreach>
+    </delete>
+
+    <delete id="deleteProductVarietiesByProductId" parameterType="Long">
+        delete from trace_product_variety where product_id = #{productId}
+    </delete>
+
+    <select id="hasProductByEnterpriseId" parameterType="Long" resultType="int">
+        select count(1) from trace_product where enterprise_id = #{enterpriseId} and del_flag = '0' limit 1
+    </select>
+
+    <select id="hasBatchByProductId" parameterType="Long" resultType="int">
+        select count(1) from trace_batch where product_id = #{productId} and del_flag = '0' limit 1
+    </select>
+
+</mapper>

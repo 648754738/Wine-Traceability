@@ -1,0 +1,120 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceVineyardPlotMapper">
+
+    <resultMap id="TracePlotResult" type="TraceVineyardPlot">
+        <id property="plotId" column="plot_id"/>
+        <result property="enterpriseId" column="enterprise_id"/>
+        <result property="enterpriseName" column="enterprise_name"/>
+        <result property="regionName" column="region_name"/>
+        <result property="plotName" column="plot_name"/>
+        <result property="plotCode" column="plot_code"/>
+        <result property="areaHa" column="area_ha"/>
+        <result property="soilType" column="soil_type"/>
+        <result property="elevationM" column="elevation_m"/>
+        <result property="gpsCoordinates" column="gps_coordinates"/>
+        <result property="plantedVariety" column="planted_variety"/>
+        <result property="vineAge" column="vine_age"/>
+        <result property="status" column="status"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="remark" column="remark"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectPlotVo">
+        select p.plot_id, p.enterprise_id, e.enterprise_name, r.region_name, p.plot_name, p.plot_code,
+               p.area_ha, p.soil_type, p.elevation_m, p.gps_coordinates, p.planted_variety,
+               p.vine_age, p.status, p.del_flag, p.remark, p.create_by, p.create_time,
+               p.update_by, p.update_time
+        from trace_vineyard_plot p
+        left join trace_enterprise e on e.enterprise_id = p.enterprise_id
+        left join trace_region r on r.region_id = e.region_id
+    </sql>
+
+    <select id="selectPlotById" parameterType="Long" resultMap="TracePlotResult">
+        <include refid="selectPlotVo"/>
+        where p.plot_id = #{plotId} and p.del_flag = '0'
+    </select>
+
+    <select id="selectPlotList" parameterType="TraceVineyardPlot" resultMap="TracePlotResult">
+        <include refid="selectPlotVo"/>
+        where p.del_flag = '0'
+        <if test="plotName != null and plotName != ''">
+            and p.plot_name like concat('%', #{plotName}, '%')
+        </if>
+        <if test="plotCode != null and plotCode != ''">
+            and p.plot_code like concat('%', #{plotCode}, '%')
+        </if>
+        <if test="enterpriseId != null">
+            and p.enterprise_id = #{enterpriseId}
+        </if>
+        <if test="status != null and status != ''">
+            and p.status = #{status}
+        </if>
+        order by p.plot_id desc
+    </select>
+
+    <select id="selectPlotOptions" resultMap="TracePlotResult">
+        <include refid="selectPlotVo"/>
+        where p.del_flag = '0' and p.status = '0'
+        <if test="enterpriseId != null">
+            and p.enterprise_id = #{enterpriseId}
+        </if>
+        order by p.plot_name asc
+    </select>
+
+    <select id="checkPlotCodeUnique" parameterType="String" resultMap="TracePlotResult">
+        <include refid="selectPlotVo"/>
+        where p.del_flag = '0' and p.plot_code = #{plotCode}
+        limit 1
+    </select>
+
+    <select id="hasBatchByPlotId" parameterType="Long" resultType="int">
+        select count(1) from trace_batch where plot_id = #{plotId} and del_flag = '0' limit 1
+    </select>
+
+    <insert id="insertPlot" parameterType="TraceVineyardPlot" useGeneratedKeys="true" keyProperty="plotId">
+        insert into trace_vineyard_plot (
+            enterprise_id, plot_name, plot_code, area_ha, soil_type, elevation_m, gps_coordinates,
+            planted_variety, vine_age, status, remark, create_by, create_time
+        ) values (
+            #{enterpriseId}, #{plotName}, #{plotCode}, #{areaHa}, #{soilType}, #{elevationM}, #{gpsCoordinates},
+            #{plantedVariety}, #{vineAge}, #{status}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updatePlot" parameterType="TraceVineyardPlot">
+        update trace_vineyard_plot
+        <set>
+            enterprise_id = #{enterpriseId},
+            plot_name = #{plotName},
+            plot_code = #{plotCode},
+            area_ha = #{areaHa},
+            soil_type = #{soilType},
+            elevation_m = #{elevationM},
+            gps_coordinates = #{gpsCoordinates},
+            planted_variety = #{plantedVariety},
+            vine_age = #{vineAge},
+            status = #{status},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where plot_id = #{plotId}
+    </update>
+
+    <update id="deletePlotByIds" parameterType="Long">
+        update trace_vineyard_plot
+        set del_flag = '2'
+        where plot_id in
+        <foreach collection="array" item="plotId" open="(" separator="," close=")">
+            #{plotId}
+        </foreach>
+    </update>
+
+</mapper>

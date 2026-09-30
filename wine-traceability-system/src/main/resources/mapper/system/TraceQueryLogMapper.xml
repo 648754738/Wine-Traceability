@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceQueryLogMapper">
+
+    <insert id="insertQueryLog" parameterType="TraceQueryLog" useGeneratedKeys="true" keyProperty="logId">
+        insert into trace_query_log (
+            trace_code, bottling_id, batch_id, enterprise_name, product_name, query_source, query_status, query_time
+        ) values (
+            #{traceCode}, #{bottlingId}, #{batchId}, #{enterpriseName}, #{productName}, #{querySource}, #{queryStatus}, sysdate()
+        )
+    </insert>
+
+</mapper>

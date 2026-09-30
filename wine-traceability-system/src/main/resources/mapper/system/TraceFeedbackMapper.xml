@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceFeedbackMapper">
+
+    <resultMap id="TraceFeedbackResult" type="TraceFeedback">
+        <id property="feedbackId" column="feedback_id"/>
+        <result property="traceCode" column="trace_code"/>
+        <result property="bottlingId" column="bottling_id"/>
+        <result property="batchNo" column="batch_no"/>
+        <result property="enterpriseName" column="enterprise_name"/>
+        <result property="productName" column="product_name"/>
+        <result property="rating" column="rating"/>
+        <result property="content" column="content"/>
+        <result property="isSuspicious" column="is_suspicious"/>
+        <result property="status" column="status"/>
+        <result property="replyContent" column="reply_content"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectFeedbackVo">
+        select f.feedback_id, f.trace_code, f.bottling_id, b.batch_no, e.enterprise_name, p.product_name,
+               f.rating, f.content, f.is_suspicious, f.status, f.reply_content, f.del_flag,
+               f.create_by, f.create_time, f.update_by, f.update_time
+        from trace_feedback f
+        left join trace_bottling_info bi on bi.bottling_id = f.bottling_id
+        left join trace_batch b on b.batch_id = bi.batch_id
+        left join trace_product p on p.product_id = b.product_id
+        left join trace_vineyard_plot vp on vp.plot_id = b.plot_id
+        left join trace_enterprise e on e.enterprise_id = vp.enterprise_id
+    </sql>
+
+    <select id="selectFeedbackById" parameterType="Long" resultMap="TraceFeedbackResult">
+        <include refid="selectFeedbackVo"/>
+        where f.feedback_id = #{feedbackId} and f.del_flag = '0'
+    </select>
+
+    <select id="selectFeedbackList" parameterType="TraceFeedback" resultMap="TraceFeedbackResult">
+        <include refid="selectFeedbackVo"/>
+        where f.del_flag = '0'
+        <if test="traceCode != null and traceCode != ''">
+            and f.trace_code like concat('%', #{traceCode}, '%')
+        </if>
+        <if test="status != null and status != ''">
+            and f.status = #{status}
+        </if>
+        <if test="isSuspicious != null and isSuspicious != ''">
+            and f.is_suspicious = #{isSuspicious}
+        </if>
+        order by f.feedback_id desc
+    </select>
+
+    <insert id="insertFeedback" parameterType="TraceFeedback" useGeneratedKeys="true" keyProperty="feedbackId">
+        insert into trace_feedback (
+            trace_code, bottling_id, rating, content, is_suspicious, status, reply_content, create_by, create_time
+        ) values (
+            #{traceCode}, #{bottlingId}, #{rating}, #{content}, #{isSuspicious}, #{status}, #{replyContent}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateFeedback" parameterType="TraceFeedback">
+        update trace_feedback
+        <set>
+            rating = #{rating},
+            content = #{content},
+            is_suspicious = #{isSuspicious},
+            status = #{status},
+            reply_content = #{replyContent},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where feedback_id = #{feedbackId}
+    </update>
+
+    <update id="deleteFeedbackByIds" parameterType="Long">
+        update trace_feedback set del_flag = '2'
+        where feedback_id in
+        <foreach collection="array" item="feedbackId" open="(" separator="," close=")">
+            #{feedbackId}
+        </foreach>
+    </update>
+
+</mapper>

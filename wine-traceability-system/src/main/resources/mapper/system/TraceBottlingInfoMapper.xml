@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceBottlingInfoMapper">
+
+    <resultMap id="TraceBottlingInfoResult" type="TraceBottlingInfo">
+        <id property="bottlingId" column="bottling_id"/>
+        <result property="batchId" column="batch_id"/>
+        <result property="batchNo" column="batch_no"/>
+        <result property="sourceContainerId" column="source_container_id"/>
+        <result property="sourceContainerCode" column="source_container_code"/>
+        <result property="traceCodePrefix" column="trace_code_prefix"/>
+        <result property="traceCodeStart" column="trace_code_start"/>
+        <result property="traceCodeEnd" column="trace_code_end"/>
+        <result property="bottleCount" column="bottle_count"/>
+        <result property="bottlingDate" column="bottling_date"/>
+        <result property="bottleSpec" column="bottle_spec"/>
+        <result property="capCode" column="cap_code"/>
+        <result property="qrCodeUrl" column="qr_code_url"/>
+        <result property="remarks" column="remarks"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectBottlingInfoVo">
+        select b.bottling_id, b.batch_id, bt.batch_no, b.source_container_id, c.container_code as source_container_code,
+               b.trace_code_prefix, b.trace_code_start, b.trace_code_end,
+               (b.trace_code_end - b.trace_code_start + 1) as bottle_count,
+               b.bottling_date, b.bottle_spec, b.cap_code, b.qr_code_url, b.remarks,
+               b.del_flag, b.create_by, b.create_time, b.update_by, b.update_time
+        from trace_bottling_info b
+        left join trace_batch bt on bt.batch_id = b.batch_id
+        left join trace_container c on c.container_id = b.source_container_id
+    </sql>
+
+    <select id="selectBottlingInfoById" parameterType="Long" resultMap="TraceBottlingInfoResult">
+        <include refid="selectBottlingInfoVo"/>
+        where b.bottling_id = #{bottlingId} and b.del_flag = '0'
+    </select>
+
+    <select id="selectBottlingInfoList" parameterType="TraceBottlingInfo" resultMap="TraceBottlingInfoResult">
+        <include refid="selectBottlingInfoVo"/>
+        where b.del_flag = '0'
+        <if test="batchId != null">
+            and b.batch_id = #{batchId}
+        </if>
+        <if test="batchNo != null and batchNo != ''">
+            and bt.batch_no like concat('%', #{batchNo}, '%')
+        </if>
+        <if test="sourceContainerId != null">
+            and b.source_container_id = #{sourceContainerId}
+        </if>
+        <if test="traceCodePrefix != null and traceCodePrefix != ''">
+            and b.trace_code_prefix like concat('%', #{traceCodePrefix}, '%')
+        </if>
+        order by b.bottling_id desc
+    </select>
+
+    <select id="selectBottlingOptions" resultMap="TraceBottlingInfoResult">
+        <include refid="selectBottlingInfoVo"/>
+        where b.del_flag = '0'
+        <if test="batchId != null">
+            and b.batch_id = #{batchId}
+        </if>
+        order by b.bottling_id desc
+    </select>
+
+    <select id="checkTraceCodeRangeConflict" resultMap="TraceBottlingInfoResult">
+        <include refid="selectBottlingInfoVo"/>
+        where b.del_flag = '0'
+          and b.trace_code_prefix = #{traceCodePrefix}
+          and not (b.trace_code_end &lt; #{traceCodeStart} or b.trace_code_start &gt; #{traceCodeEnd})
+        limit 1
+    </select>
+
+    <select id="hasBottlingByBatchId" parameterType="Long" resultType="int">
+        select count(1) from trace_bottling_info where batch_id = #{batchId} and del_flag = '0' limit 1
+    </select>
+
+    <select id="hasBottlingByContainerId" parameterType="Long" resultType="int">
+        select count(1) from trace_bottling_info where source_container_id = #{containerId} and del_flag = '0' limit 1
+    </select>
+
+    <select id="hasWarehouseDetailByBottlingId" parameterType="Long" resultType="int">
+        select count(1) from trace_warehouse_bill_detail where bottling_id = #{bottlingId} and del_flag = '0' limit 1
+    </select>
+
+    <insert id="insertBottlingInfo" parameterType="TraceBottlingInfo" useGeneratedKeys="true" keyProperty="bottlingId">
+        insert into trace_bottling_info (
+            batch_id, source_container_id, trace_code_prefix, trace_code_start, trace_code_end,
+            bottling_date, bottle_spec, cap_code, qr_code_url, remarks, create_by, create_time
+        ) values (
+            #{batchId}, #{sourceContainerId}, #{traceCodePrefix}, #{traceCodeStart}, #{traceCodeEnd},
+            #{bottlingDate}, #{bottleSpec}, #{capCode}, #{qrCodeUrl}, #{remarks}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateBottlingInfo" parameterType="TraceBottlingInfo">
+        update trace_bottling_info
+        <set>
+            batch_id = #{batchId},
+            source_container_id = #{sourceContainerId},
+            trace_code_prefix = #{traceCodePrefix},
+            trace_code_start = #{traceCodeStart},
+            trace_code_end = #{traceCodeEnd},
+            bottling_date = #{bottlingDate},
+            bottle_spec = #{bottleSpec},
+            cap_code = #{capCode},
+            qr_code_url = #{qrCodeUrl},
+            remarks = #{remarks},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where bottling_id = #{bottlingId}
+    </update>
+
+    <update id="deleteBottlingInfoByIds" parameterType="Long">
+        update trace_bottling_info set del_flag = '2'
+        where bottling_id in
+        <foreach collection="array" item="bottlingId" open="(" separator="," close=")">
+            #{bottlingId}
+        </foreach>
+    </update>
+
+</mapper>

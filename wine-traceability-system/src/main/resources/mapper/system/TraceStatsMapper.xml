@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceStatsMapper">
+
+    <select id="selectTotalQueryCount" resultType="int">
+        select count(1) from trace_query_log
+    </select>
+
+    <select id="selectTodayQueryCount" resultType="int">
+        select count(1) from trace_query_log where date(query_time) = curdate()
+    </select>
+
+    <select id="selectTotalFeedbackCount" resultType="int">
+        select count(1) from trace_feedback where del_flag = '0'
+    </select>
+
+    <select id="selectSuspiciousFeedbackCount" resultType="int">
+        select count(1) from trace_feedback where del_flag = '0' and is_suspicious = '1'
+    </select>
+
+    <select id="selectAverageRating" resultType="double">
+        select ifnull(avg(rating), 0) from trace_feedback where del_flag = '0' and rating is not null
+    </select>
+
+    <select id="selectTotalBatchCount" resultType="int">
+        select count(1) from trace_batch where del_flag = '0'
+    </select>
+
+    <select id="selectProcessCoveredBatchCount" resultType="int">
+        select count(distinct batch_id) from trace_process_record where del_flag = '0'
+    </select>
+
+    <select id="selectQualityCoveredBatchCount" resultType="int">
+        select count(distinct batch_id) from trace_quality_report where del_flag = '0'
+    </select>
+
+    <select id="selectBottlingCoveredBatchCount" resultType="int">
+        select count(distinct batch_id) from trace_bottling_info where del_flag = '0'
+    </select>
+
+    <select id="selectWarehouseCoveredBatchCount" resultType="int">
+        select count(distinct bi.batch_id)
+        from trace_warehouse_bill_detail d
+        left join trace_bottling_info bi on bi.bottling_id = d.bottling_id
+        where d.del_flag = '0'
+    </select>
+
+    <select id="selectRecentQueryTrend" resultType="java.util.HashMap">
+        select date_format(query_time, '%m-%d') as dayLabel, count(1) as queryCount
+        from trace_query_log
+        where query_time &gt;= date_sub(curdate(), interval 6 day)
+        group by date_format(query_time, '%m-%d')
+        order by dayLabel asc
+    </select>
+
+    <select id="selectTopProducts" resultType="java.util.HashMap">
+        select ifnull(product_name, '未命名产品') as name, count(1) as value
+        from trace_query_log
+        where query_status = '1'
+        group by product_name
+        order by value desc
+        limit 8
+    </select>
+
+    <select id="selectFeedbackRatingStats" resultType="java.util.HashMap">
+        select concat(rating, '星') as name, count(1) as value
+        from trace_feedback
+        where del_flag = '0' and rating is not null
+        group by rating
+        order by rating asc
+    </select>
+
+    <select id="selectRecentSuspiciousFeedback" resultType="java.util.HashMap">
+        select trace_code as traceCode, enterprise_name as enterpriseName, product_name as productName,
+               content, create_time as createTime, status
+        from (
+            select f.trace_code, e.enterprise_name, p.product_name, f.content, f.create_time, f.status
+            from trace_feedback f
+            left join trace_bottling_info bi on bi.bottling_id = f.bottling_id
+            left join trace_batch b on b.batch_id = bi.batch_id
+            left join trace_product p on p.product_id = b.product_id
+            left join trace_vineyard_plot vp on vp.plot_id = b.plot_id
+            left join trace_enterprise e on e.enterprise_id = vp.enterprise_id
+            where f.del_flag = '0' and f.is_suspicious = '1'
+            order by f.create_time desc
+            limit 10
+        ) t
+    </select>
+
+</mapper>

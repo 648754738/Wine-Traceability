@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceQualityReportMapper">
+
+    <resultMap id="TraceQualityReportResult" type="TraceQualityReport">
+        <id property="reportId" column="report_id"/>
+        <result property="batchId" column="batch_id"/>
+        <result property="batchNo" column="batch_no"/>
+        <result property="inspectionDate" column="inspection_date"/>
+        <result property="inspector" column="inspector"/>
+        <result property="alcohol" column="alcohol"/>
+        <result property="totalSugar" column="total_sugar"/>
+        <result property="volatileAcid" column="volatile_acid"/>
+        <result property="sulfite" column="sulfite"/>
+        <result property="isQualified" column="is_qualified"/>
+        <result property="reportUrl" column="report_url"/>
+        <result property="remarks" column="remarks"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectQualityReportVo">
+        select q.report_id, q.batch_id, b.batch_no, q.inspection_date, q.inspector,
+               q.alcohol, q.total_sugar, q.volatile_acid, q.sulfite, q.is_qualified,
+               q.report_url, q.remarks, q.del_flag, q.create_by, q.create_time, q.update_by, q.update_time
+        from trace_quality_report q
+        left join trace_batch b on b.batch_id = q.batch_id
+    </sql>
+
+    <select id="selectQualityReportById" parameterType="Long" resultMap="TraceQualityReportResult">
+        <include refid="selectQualityReportVo"/>
+        where q.report_id = #{reportId} and q.del_flag = '0'
+    </select>
+
+    <select id="selectQualityReportList" parameterType="TraceQualityReport" resultMap="TraceQualityReportResult">
+        <include refid="selectQualityReportVo"/>
+        where q.del_flag = '0'
+        <if test="batchId != null">
+            and q.batch_id = #{batchId}
+        </if>
+        <if test="batchNo != null and batchNo != ''">
+            and b.batch_no like concat('%', #{batchNo}, '%')
+        </if>
+        <if test="isQualified != null and isQualified != ''">
+            and q.is_qualified = #{isQualified}
+        </if>
+        <if test="inspector != null and inspector != ''">
+            and q.inspector like concat('%', #{inspector}, '%')
+        </if>
+        order by q.report_id desc
+    </select>
+
+    <select id="hasQualityByBatchId" parameterType="Long" resultType="int">
+        select count(1) from trace_quality_report where batch_id = #{batchId} and del_flag = '0' limit 1
+    </select>
+
+    <insert id="insertQualityReport" parameterType="TraceQualityReport" useGeneratedKeys="true" keyProperty="reportId">
+        insert into trace_quality_report (
+            batch_id, inspection_date, inspector, alcohol, total_sugar, volatile_acid,
+            sulfite, is_qualified, report_url, remarks, create_by, create_time
+        ) values (
+            #{batchId}, #{inspectionDate}, #{inspector}, #{alcohol}, #{totalSugar}, #{volatileAcid},
+            #{sulfite}, #{isQualified}, #{reportUrl}, #{remarks}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateQualityReport" parameterType="TraceQualityReport">
+        update trace_quality_report
+        <set>
+            batch_id = #{batchId},
+            inspection_date = #{inspectionDate},
+            inspector = #{inspector},
+            alcohol = #{alcohol},
+            total_sugar = #{totalSugar},
+            volatile_acid = #{volatileAcid},
+            sulfite = #{sulfite},
+            is_qualified = #{isQualified},
+            report_url = #{reportUrl},
+            remarks = #{remarks},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where report_id = #{reportId}
+    </update>
+
+    <update id="deleteQualityReportByIds" parameterType="Long">
+        update trace_quality_report set del_flag = '2'
+        where report_id in
+        <foreach collection="array" item="reportId" open="(" separator="," close=")">
+            #{reportId}
+        </foreach>
+    </update>
+
+</mapper>

@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceWarehouseBillMapper">
+
+    <resultMap id="TraceWarehouseBillResult" type="TraceWarehouseBill">
+        <id property="billId" column="bill_id"/>
+        <result property="billType" column="bill_type"/>
+        <result property="billNo" column="bill_no"/>
+        <result property="operatorId" column="operator_id"/>
+        <result property="operatorName" column="operator_name"/>
+        <result property="operateTime" column="operate_time"/>
+        <result property="totalQuantity" column="total_quantity"/>
+        <result property="detailCount" column="detail_count"/>
+        <result property="remark" column="remark"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <resultMap id="TraceWarehouseBillDetailResult" type="TraceWarehouseBillDetail">
+        <id property="detailId" column="detail_id"/>
+        <result property="billId" column="bill_id"/>
+        <result property="bottlingId" column="bottling_id"/>
+        <result property="batchNo" column="batch_no"/>
+        <result property="traceCodePrefix" column="trace_code_prefix"/>
+        <result property="traceCodeStart" column="trace_code_start"/>
+        <result property="traceCodeEnd" column="trace_code_end"/>
+        <result property="bottleCount" column="bottle_count"/>
+        <result property="quantity" column="quantity"/>
+        <result property="startTraceCode" column="start_trace_code"/>
+        <result property="endTraceCode" column="end_trace_code"/>
+        <result property="delFlag" column="del_flag"/>
+    </resultMap>
+
+    <sql id="selectWarehouseBillVo">
+        select b.bill_id, b.bill_type, b.bill_no, b.operator_id, u.user_name as operator_name,
+               b.operate_time, b.remark, b.del_flag, b.create_by, b.create_time, b.update_by, b.update_time,
+               ifnull(sum(d.quantity), 0) as total_quantity, count(d.detail_id) as detail_count
+        from trace_warehouse_bill b
+        left join sys_user u on u.user_id = b.operator_id
+        left join trace_warehouse_bill_detail d on d.bill_id = b.bill_id and d.del_flag = '0'
+    </sql>
+
+    <select id="selectWarehouseBillById" parameterType="Long" resultMap="TraceWarehouseBillResult">
+        <include refid="selectWarehouseBillVo"/>
+        where b.bill_id = #{billId} and b.del_flag = '0'
+        group by b.bill_id
+    </select>
+
+    <select id="selectWarehouseBillList" parameterType="TraceWarehouseBill" resultMap="TraceWarehouseBillResult">
+        <include refid="selectWarehouseBillVo"/>
+        where b.del_flag = '0'
+        <if test="billType != null and billType != ''">
+            and b.bill_type = #{billType}
+        </if>
+        <if test="billNo != null and billNo != ''">
+            and b.bill_no like concat('%', #{billNo}, '%')
+        </if>
+        group by b.bill_id
+        order by b.operate_time desc, b.bill_id desc
+    </select>
+
+    <select id="selectWarehouseBillOptions" resultMap="TraceWarehouseBillResult">
+        <include refid="selectWarehouseBillVo"/>
+        where b.del_flag = '0'
+        <if test="billType != null and billType != ''">
+            and b.bill_type = #{billType}
+        </if>
+        group by b.bill_id
+        order by b.operate_time desc, b.bill_id desc
+    </select>
+
+    <select id="checkBillNoUnique" parameterType="String" resultMap="TraceWarehouseBillResult">
+        <include refid="selectWarehouseBillVo"/>
+        where b.del_flag = '0' and b.bill_no = #{billNo}
+        group by b.bill_id
+        limit 1
+    </select>
+
+    <select id="selectWarehouseBillDetailList" parameterType="Long" resultMap="TraceWarehouseBillDetailResult">
+        select d.detail_id, d.bill_id, d.bottling_id, bt.batch_no, bi.trace_code_prefix, bi.trace_code_start, bi.trace_code_end,
+               (bi.trace_code_end - bi.trace_code_start + 1) as bottle_count,
+               d.quantity, d.start_trace_code, d.end_trace_code, d.del_flag
+        from trace_warehouse_bill_detail d
+        left join trace_bottling_info bi on bi.bottling_id = d.bottling_id
+        left join trace_batch bt on bt.batch_id = bi.batch_id
+        where d.bill_id = #{billId} and d.del_flag = '0'
+        order by d.detail_id asc
+    </select>
+
+    <insert id="insertWarehouseBill" parameterType="TraceWarehouseBill" useGeneratedKeys="true" keyProperty="billId">
+        insert into trace_warehouse_bill (
+            bill_type, bill_no, operator_id, operate_time, remark, create_by, create_time
+        ) values (
+            #{billType}, #{billNo}, #{operatorId}, #{operateTime}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateWarehouseBill" parameterType="TraceWarehouseBill">
+        update trace_warehouse_bill
+        <set>
+            bill_type = #{billType},
+            bill_no = #{billNo},
+            operator_id = #{operatorId},
+            operate_time = #{operateTime},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where bill_id = #{billId}
+    </update>
+
+    <update id="deleteWarehouseBillByIds" parameterType="Long">
+        update trace_warehouse_bill set del_flag = '2'
+        where bill_id in
+        <foreach collection="array" item="billId" open="(" separator="," close=")">
+            #{billId}
+        </foreach>
+    </update>
+
+    <insert id="insertWarehouseBillDetails">
+        insert into trace_warehouse_bill_detail (
+            bill_id, bottling_id, quantity, start_trace_code, end_trace_code, create_by, create_time
+        ) values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.billId}, #{item.bottlingId}, #{item.quantity}, #{item.startTraceCode}, #{item.endTraceCode}, #{item.createBy}, sysdate())
+        </foreach>
+    </insert>
+
+    <update id="deleteWarehouseBillDetailsByBillId" parameterType="Long">
+        update trace_warehouse_bill_detail set del_flag = '2'
+        where bill_id = #{billId}
+    </update>
+
+    <update id="deleteWarehouseBillDetailsByBillIds" parameterType="Long">
+        update trace_warehouse_bill_detail set del_flag = '2'
+        where bill_id in
+        <foreach collection="array" item="billId" open="(" separator="," close=")">
+            #{billId}
+        </foreach>
+    </update>
+
+    <select id="hasLogisticsByBillId" parameterType="Long" resultType="int">
+        select count(1) from trace_logistics where out_bill_id = #{billId} and del_flag = '0' limit 1
+    </select>
+
+    <select id="hasWarehouseDetailByBottlingId" parameterType="Long" resultType="int">
+        select count(1) from trace_warehouse_bill_detail where bottling_id = #{bottlingId} and del_flag = '0' limit 1
+    </select>
+
+</mapper>

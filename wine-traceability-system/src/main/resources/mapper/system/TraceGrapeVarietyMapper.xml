@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceGrapeVarietyMapper">
+
+    <resultMap id="TraceVarietyResult" type="TraceGrapeVariety">
+        <id property="varietyId" column="variety_id"/>
+        <result property="varietyName" column="variety_name"/>
+        <result property="englishName" column="english_name"/>
+        <result property="status" column="status"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="remark" column="remark"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectVarietyVo">
+        select variety_id, variety_name, english_name, status, del_flag, remark, create_by, create_time, update_by, update_time
+        from trace_grape_variety
+    </sql>
+
+    <select id="selectVarietyById" parameterType="Long" resultMap="TraceVarietyResult">
+        <include refid="selectVarietyVo"/>
+        where variety_id = #{varietyId} and del_flag = '0'
+    </select>
+
+    <select id="selectVarietyList" parameterType="TraceGrapeVariety" resultMap="TraceVarietyResult">
+        <include refid="selectVarietyVo"/>
+        where del_flag = '0'
+        <if test="varietyName != null and varietyName != ''">
+            and variety_name like concat('%', #{varietyName}, '%')
+        </if>
+        <if test="status != null and status != ''">
+            and status = #{status}
+        </if>
+        order by variety_id desc
+    </select>
+
+    <select id="selectVarietyOptions" resultMap="TraceVarietyResult">
+        <include refid="selectVarietyVo"/>
+        where del_flag = '0' and status = '0'
+        order by variety_name asc
+    </select>
+
+    <select id="checkVarietyNameUnique" parameterType="String" resultMap="TraceVarietyResult">
+        <include refid="selectVarietyVo"/>
+        where del_flag = '0' and variety_name = #{varietyName}
+        limit 1
+    </select>
+
+    <select id="checkVarietyUsed" parameterType="Long" resultType="int">
+        select count(1) from trace_product_variety where variety_id = #{varietyId} limit 1
+    </select>
+
+    <insert id="insertVariety" parameterType="TraceGrapeVariety" useGeneratedKeys="true" keyProperty="varietyId">
+        insert into trace_grape_variety (
+            variety_name, english_name, status, remark, create_by, create_time
+        ) values (
+            #{varietyName}, #{englishName}, #{status}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateVariety" parameterType="TraceGrapeVariety">
+        update trace_grape_variety
+        <set>
+            variety_name = #{varietyName},
+            english_name = #{englishName},
+            status = #{status},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where variety_id = #{varietyId}
+    </update>
+
+    <update id="deleteVarietyByIds" parameterType="Long">
+        update trace_grape_variety
+        set del_flag = '2'
+        where variety_id in
+        <foreach collection="array" item="varietyId" open="(" separator="," close=")">
+            #{varietyId}
+        </foreach>
+    </update>
+
+</mapper>

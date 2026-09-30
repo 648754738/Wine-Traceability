@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.wine.system.mapper.TraceWorkshopMapper">
+
+    <resultMap id="TraceWorkshopResult" type="TraceWorkshop">
+        <id property="workshopId" column="workshop_id"/>
+        <result property="enterpriseId" column="enterprise_id"/>
+        <result property="enterpriseName" column="enterprise_name"/>
+        <result property="workshopName" column="workshop_name"/>
+        <result property="location" column="location"/>
+        <result property="supervisor" column="supervisor"/>
+        <result property="status" column="status"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="remark" column="remark"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectWorkshopVo">
+        select w.workshop_id, w.enterprise_id, e.enterprise_name, w.workshop_name, w.location,
+               w.supervisor, w.status, w.del_flag, w.remark, w.create_by, w.create_time, w.update_by, w.update_time
+        from trace_workshop w
+        left join trace_enterprise e on e.enterprise_id = w.enterprise_id
+    </sql>
+
+    <select id="selectWorkshopById" parameterType="Long" resultMap="TraceWorkshopResult">
+        <include refid="selectWorkshopVo"/>
+        where w.workshop_id = #{workshopId} and w.del_flag = '0'
+    </select>
+
+    <select id="selectWorkshopList" parameterType="TraceWorkshop" resultMap="TraceWorkshopResult">
+        <include refid="selectWorkshopVo"/>
+        where w.del_flag = '0'
+        <if test="enterpriseId != null">
+            and w.enterprise_id = #{enterpriseId}
+        </if>
+        <if test="workshopName != null and workshopName != ''">
+            and w.workshop_name like concat('%', #{workshopName}, '%')
+        </if>
+        <if test="status != null and status != ''">
+            and w.status = #{status}
+        </if>
+        order by w.workshop_id desc
+    </select>
+
+    <select id="selectWorkshopOptions" resultMap="TraceWorkshopResult">
+        <include refid="selectWorkshopVo"/>
+        where w.del_flag = '0' and w.status = '0'
+        <if test="enterpriseId != null">
+            and w.enterprise_id = #{enterpriseId}
+        </if>
+        order by w.workshop_name asc
+    </select>
+
+    <select id="checkWorkshopNameUnique" resultMap="TraceWorkshopResult">
+        <include refid="selectWorkshopVo"/>
+        where w.del_flag = '0' and w.enterprise_id = #{enterpriseId} and w.workshop_name = #{workshopName}
+        limit 1
+    </select>
+
+    <select id="hasContainerByWorkshopId" parameterType="Long" resultType="int">
+        select count(1) from trace_container where workshop_id = #{workshopId} and del_flag = '0' limit 1
+    </select>
+
+    <select id="hasBatchByWorkshopId" parameterType="Long" resultType="int">
+        select count(1) from trace_batch where workshop_id = #{workshopId} and del_flag = '0' limit 1
+    </select>
+
+    <select id="hasWorkshopByEnterpriseId" parameterType="Long" resultType="int">
+        select count(1) from trace_workshop where enterprise_id = #{enterpriseId} and del_flag = '0' limit 1
+    </select>
+
+    <insert id="insertWorkshop" parameterType="TraceWorkshop" useGeneratedKeys="true" keyProperty="workshopId">
+        insert into trace_workshop (
+            enterprise_id, workshop_name, location, supervisor, status, remark, create_by, create_time
+        ) values (
+            #{enterpriseId}, #{workshopName}, #{location}, #{supervisor}, #{status}, #{remark}, #{createBy}, sysdate()
+        )
+    </insert>
+
+    <update id="updateWorkshop" parameterType="TraceWorkshop">
+        update trace_workshop
+        <set>
+            enterprise_id = #{enterpriseId},
+            workshop_name = #{workshopName},
+            location = #{location},
+            supervisor = #{supervisor},
+            status = #{status},
+            remark = #{remark},
+            update_by = #{updateBy},
+            update_time = sysdate()
+        </set>
+        where workshop_id = #{workshopId}
+    </update>
+
+    <update id="deleteWorkshopByIds" parameterType="Long">
+        update trace_workshop
+        set del_flag = '2'
+        where workshop_id in
+        <foreach collection="array" item="workshopId" open="(" separator="," close=")">
+            #{workshopId}
+        </foreach>
+    </update>
+
+</mapper>
